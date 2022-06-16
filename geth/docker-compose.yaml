@@ -1,0 +1,103 @@
+services:
+  geth-init:
+    image: $ETHEREUM_CLIENT_GO_IMAGE
+    command:
+    - init
+    - /root/config/genesis.custom.json
+    volumes:
+    - ./geth_config:/root/config
+    - /data/geth/data:/root/.ethereum
+    profiles:
+    - geth
+    - geth-init
+  geth-import:
+    image: $ETHEREUM_CLIENT_GO_IMAGE
+    depends_on:
+      geth-init:
+        condition: service_completed_successfully
+    entrypoint:
+    - "/bin/sh"
+    - "-c"
+    - "cd /data/geth_backups && sh ./import.sh"
+    volumes:
+    - ./geth_config:/root/config
+    - /data/geth/data:/root/.ethereum
+    - ./geth_backups:/data/geth_backups
+    - /etc/localtime:/etc/localtime
+    profiles:
+    - geth
+    - geth-import
+  geth:
+    image: $ETHEREUM_CLIENT_GO_IMAGE
+    network_mode: host
+    restart: always
+    depends_on:
+      geth-import:
+        condition: service_completed_successfully
+      geth-init:
+        condition: service_completed_successfully
+      influxdb:
+        condition: service_started
+    profiles:
+    - geth
+    - geth-node
+    command:
+    - --config
+    - /root/config/config.custom.toml
+    - --http
+    - --ws
+    - --ws.addr=0.0.0.0
+    - --ws.origins=*
+    - --gcmode=archive
+    - --nodiscover
+    - --http.vhosts=*
+    - --http.corsdomain=*
+    - --nodiscover
+    - --metrics
+    - --metrics.influxdb
+    - --metrics.influxdb.endpoint=$METRICS_INFLUXDB_ENDPOINT
+    - --metrics.influxdb.tags=$METRICS_INFLUXDB_TAGS
+    - --metrics.influxdb.username=$METRICS_INFLUXDB_USERNAME
+    - --metrics.influxdb.password=$METRICS_INFLUXDB_PASSWORD
+    #ports:
+    #- 8545:8545
+    #- 8546:8546
+    #- 30303:30303
+    volumes:
+    - ./geth_config:/root/config
+    - /data/geth/data:/root/.ethereum
+  influxdb:
+    image: influxdb:1.8
+    restart: always
+    ports:
+    - 8086:8086
+    volumes:
+    - /data/influxdb/data:/var/lib/influxdb
+    profiles:
+    - monitor
+    - influxdb
+  grafana-init:
+    image: grafana/grafana:8.5.6
+    user: root
+    entrypoint:
+    - "/bin/sh"
+    - "-c"
+    - "chown -R grafana:root /var/lib/grafana"
+    volumes:
+    - /data/grafana/data:/var/lib/grafana
+    profiles:
+    - monitor
+    - grafana-init
+  grafana:
+    image: grafana/grafana:8.5.6
+    restart: always
+    depends_on:
+      grafana-init:
+        condition: service_completed_successfully
+    ports:
+    - 3000:3000
+    volumes:
+    - /data/grafana/data:/var/lib/grafana
+    profiles:
+    - monitor
+    - grafana

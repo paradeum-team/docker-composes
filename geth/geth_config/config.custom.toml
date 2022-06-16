@@ -1,0 +1,11 @@
+[Eth]
+NetworkId = 101010
+SyncMode = "full"
+
+[Node]
+HTTPHost = "0.0.0.0"
+HTTPModules = ["eth", "net", "web3", "txpool"]
+
+[Node.P2P]
+StaticNodes = []
+TrustedNodes = []
