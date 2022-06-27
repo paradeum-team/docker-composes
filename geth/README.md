@@ -62,3 +62,38 @@ StaticNodes = []
 ## 导入 grafana  geth 图表
 
 访问 grafana ui, 手动导入图表 `grafana_dashboards/single-geth-dashboard_rev1.json`
+
+## 健康检查命令
+
+查询连接的 peers , 正常同 `geth_config/config.custom.toml` 中 `StaticNodes` 配置的数量，如果数量减少表示连接peer有异常，需要告警处理
+
+```sh
+docker exec -it geth-geth-1 geth attach /root/.ethereum/geth.ipc --exec admin.peers.length
+
+# 输出结果
+3
+```
+
+查询 当前块高度, 正常情况下2s 出一个块，（`geth_config/genesis.custom.json`中设置的 `period`配置为`2s` ）
+
+如果当前块高度 - 5分钟前块高度 < 100  表示块同步缓慢，需要告警处理
+
+```sh
+docker exec -it geth-geth-1 geth attach /root/.ethereum/geth.ipc --exec eth.blockNumber
+
+# 输出结果
+1943754
+```
+
+查个队列状态，pending > 16 或 queued > 16, 就有可能有问题了，需要排查处理
+
+```sh
+docker exec -it geth-geth-1 geth attach /root/.ethereum/geth.ipc --exec txpool.status
+
+# 输出结果
+{
+  pending: 0,
+  queued: 0
+}
+```
+
